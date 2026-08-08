@@ -159,14 +159,24 @@ public class ChatActivity extends Activity {
         int type = senderName.equals(myName) ? ChatMessage.TYPE_SENT : ChatMessage.TYPE_RECEIVED;
         ChatMessage message = new ChatMessage(senderName, text, time, type);
 
-        // Server sends these as public Supabase URLs (or null if there's no
+        // Server sends these as public Supabase URLs (or JSON null if there's no
         // media on this message) — same "image"/"video" fields the web app uses.
-        String image = m.optString("image", null);
+        // NOTE: Android's on-device org.json can stringify a JSON null value into
+        // the literal string "null" via optString's fallback — so we check isNull()
+        // explicitly rather than trusting the fallback.
+        String image = extractMediaUrl(m, "image");
         if (!TextUtils.isEmpty(image)) message.imageUrl = image;
-        String video = m.optString("video", null);
+        String video = extractMediaUrl(m, "video");
         if (!TextUtils.isEmpty(video)) message.videoUrl = video;
 
         messages.add(message);
+    }
+
+    private static String extractMediaUrl(JSONObject m, String key) {
+        if (!m.has(key) || m.isNull(key)) return null;
+        String value = m.optString(key, "");
+        if (TextUtils.isEmpty(value) || "null".equals(value)) return null;
+        return value;
     }
 
     private void setupIncomingMessageListener() {
