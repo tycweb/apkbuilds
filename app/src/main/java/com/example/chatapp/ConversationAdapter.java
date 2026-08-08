@@ -6,6 +6,7 @@ import android.text.format.DateFormat;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.AnimationUtils;
 import android.widget.ArrayAdapter;
 import android.widget.TextView;
 
@@ -14,13 +15,19 @@ import org.json.JSONObject;
 
 public class ConversationAdapter extends ArrayAdapter<JSONObject> {
 
+    public interface Listener {
+        void onConversationClick(JSONObject conversation, String title);
+    }
+
     private LayoutInflater inflater;
     private String myName;
+    private Listener listener;
 
-    public ConversationAdapter(Context context, JSONArray conversations, String myName) {
+    public ConversationAdapter(Context context, JSONArray conversations, String myName, Listener listener) {
         super(context, 0);
         inflater = LayoutInflater.from(context);
         this.myName = myName;
+        this.listener = listener;
         if (conversations != null) {
             for (int i = 0; i < conversations.length(); i++) {
                 add(conversations.optJSONObject(i));
@@ -35,7 +42,8 @@ public class ConversationAdapter extends ArrayAdapter<JSONObject> {
             view = inflater.inflate(R.layout.item_conversation, parent, false);
         }
 
-        JSONObject conv = getItem(position);
+        final JSONObject conv = getItem(position);
+        View card = view.findViewById(R.id.convCard);
         TextView titleView = view.findViewById(R.id.convTitle);
         TextView previewView = view.findViewById(R.id.convPreview);
         TextView timeView = view.findViewById(R.id.convTime);
@@ -56,6 +64,7 @@ public class ConversationAdapter extends ArrayAdapter<JSONObject> {
                 }
             }
         }
+        final String finalTitle = title;
         titleView.setText(title);
 
         GradientDrawable circle = new GradientDrawable();
@@ -84,6 +93,16 @@ public class ConversationAdapter extends ArrayAdapter<JSONObject> {
             previewView.setText("No messages yet");
             timeView.setText("");
         }
+
+        card.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                v.startAnimation(AnimationUtils.loadAnimation(getContext(), R.anim.press_scale));
+                if (listener != null) {
+                    listener.onConversationClick(conv, finalTitle);
+                }
+            }
+        });
 
         return view;
     }

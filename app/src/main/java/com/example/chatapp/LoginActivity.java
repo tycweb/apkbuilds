@@ -2,12 +2,15 @@ package com.example.tycept;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.TextUtils;
 import android.view.View;
+import android.view.animation.Animation;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.TextView;
 
@@ -18,16 +21,25 @@ import org.json.JSONObject;
 
 public class LoginActivity extends Activity {
 
+    private static final String PREFS = "tycept_prefs";
+    private static final String KEY_REMEMBER = "remember";
+    private static final String KEY_NAME = "saved_name";
+    private static final String KEY_PASSWORD = "saved_password";
+
     private EditText nameInput;
     private EditText passwordInput;
+    private CheckBox rememberMeCheckbox;
     private Button joinButton;
     private TextView errorText;
+    private View formFields;
+    private View skeletonContainer;
+    private TextView skeletonLabel;
+
     private Handler mainHandler = new Handler(Looper.getMainLooper());
     private Runnable timeoutRunnable;
     private boolean joinResolved;
 
     private Emitter.Listener onConnectError;
-    private Emitter.Listener onConnect;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -36,8 +48,12 @@ public class LoginActivity extends Activity {
 
         nameInput = findViewById(R.id.nameInput);
         passwordInput = findViewById(R.id.passwordInput);
+        rememberMeCheckbox = findViewById(R.id.rememberMeCheckbox);
         joinButton = findViewById(R.id.joinButton);
         errorText = findViewById(R.id.errorText);
+        formFields = findViewById(R.id.formFields);
+        skeletonContainer = findViewById(R.id.skeletonContainer);
+        skeletonLabel = findViewById(R.id.skeletonLabel);
 
         joinButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -45,6 +61,22 @@ public class LoginActivity extends Activity {
                 attemptJoin();
             }
         });
+
+        maybeAutoLogin();
+    }
+
+    private void maybeAutoLogin() {
+        SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        boolean remember = prefs.getBoolean(KEY_REMEMBER, false);
+        String savedName = prefs.getString(KEY_NAME, null);
+        String savedPassword = prefs.getString(KEY_PASSWORD, null);
+
+        if (remember && !TextUtils.isEmpty(savedName) && !TextUtils.isEmpty(savedPassword)) {
+            nameInput.setText(savedName);
+            passwordInput.setText(savedPassword);
+            skeletonLabel.setText("Signing you back in…");
+            attemptJoin();
+        }
     }
 
     private void attemptJoin() {
@@ -61,28 +93,11 @@ public class LoginActivity extends Activity {
         }
 
         errorText.setVisibility(View.GONE);
-        joinButton.setEnabled(false);
-        joinButton.setText("Waking up server…");
+        showSkeleton(true);
         joinResolved = false;
 
         final Socket socket = SocketManager.getInstance().getSocket();
 
-        // Free hosting tiers (like Render's free plan) can take 30-60s to wake
-        // up from sleep on the first request. Give clear feedback instead of a
-        // silent hang, and bail out with a helpful message if it's truly stuck.
-        onConnect = new Emitter.Listener() {
-            @Override
-            public void call(Object... args) {
-                mainHandler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (!joinResolved) {
-                            joinButton.setText("Connecting…");
-                        }
-                    }
-                });
-            }
-        };
         onConnectError = new Emitter.Listener() {
             @Override
             public void call(final Object... args) {
@@ -92,12 +107,11 @@ public class LoginActivity extends Activity {
                         if (joinResolved) return;
                         String detail = args.length > 0 ? String.valueOf(args[0]) : "unknown error";
                         showError("Can't reach server: " + detail);
-                        resetButton();
+                        finishAttempt();
                     }
                 });
             }
         };
-        socket.on(Socket.EVENT_CONNECT, onConnect);
         socket.on(Socket.EVENT_CONNECT_ERROR, onConnectError);
 
         timeoutRunnable = new Runnable() {
@@ -105,7 +119,7 @@ public class LoginActivity extends Activity {
             public void run() {
                 if (joinResolved) return;
                 showError("Still waiting on the server. Free hosting can take up to a minute to wake up — try again in a bit.");
-                resetButton();
+                finishAttempt();
             }
         };
         mainHandler.postDelayed(timeoutRunnable, 45000);
@@ -126,17 +140,29 @@ public class LoginActivity extends Activity {
                     public void run() {
                         joinResolved = true;
                         mainHandler.removeCallbacks(timeoutRunnable);
-                        handleJoinResponse(args);
+                        handleJoinResponse(args, name, password);
                     }
                 });
             }
         });
     }
 
-    private void resetButton() {
+    private void showSkeleton(boolean show) {
+        if (show) {
+            formFields.setVisibility(View.GONE);
+            skeletonContainer.setVisibility(View.VISIBLE);
+            Animation pulse = android.view.animation.AnimationUtils.loadAnimation(this, R.anim.pulse);
+            skeletonContainer.startAnimation(pulse);
+        } else {
+            skeletonContainer.clearAnimation();
+            skeletonContainer.setVisibility(View.GONE);
+            formFields.setVisibility(View.VISIBLE);
+        }
+    }
+
+    private void finishAttempt() {
         joinResolved = true;
-        joinButton.setEnabled(true);
-        joinButton.setText("Join chat");
+        showSkeleton(false);
     }
 
     private void showError(String message) {
@@ -144,8 +170,8 @@ public class LoginActivity extends Activity {
         errorText.setVisibility(View.VISIBLE);
     }
 
-    private void handleJoinResponse(Object[] args) {
-        resetButton();
+    private void handleJoinResponse(Object[] args, String name, String password) {
+        finishAttempt();
 
         if (args.length == 0 || !(args[0] instanceof JSONObject)) {
             showError("Something went wrong. Try again.");
@@ -163,7 +189,16 @@ public class LoginActivity extends Activity {
             } else {
                 showError("Couldn't join: " + error);
             }
+            // A saved login stopped working (e.g. password changed) — forget it
+            // rather than looping on a failing auto-login every launch.
+            clearSavedCredentials();
             return;
+        }
+
+        if (rememberMeCheckbox.isChecked()) {
+            saveCredentials(name, password);
+        } else {
+            clearSavedCredentials();
         }
 
         SocketManager.getInstance().myName = result.optString("name");
@@ -172,5 +207,19 @@ public class LoginActivity extends Activity {
         Intent intent = new Intent(LoginActivity.this, ConversationsActivity.class);
         startActivity(intent);
         finish();
+    }
+
+    private void saveCredentials(String name, String password) {
+        SharedPreferences.Editor editor = getSharedPreferences(PREFS, MODE_PRIVATE).edit();
+        editor.putBoolean(KEY_REMEMBER, true);
+        editor.putString(KEY_NAME, name);
+        editor.putString(KEY_PASSWORD, password);
+        editor.apply();
+    }
+
+    private void clearSavedCredentials() {
+        SharedPreferences.Editor editor = getSharedPreferences(PREFS, MODE_PRIVATE).edit();
+        editor.clear();
+        editor.apply();
     }
 }
