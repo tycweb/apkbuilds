@@ -12,7 +12,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="start"
         android:orientation="vertical"
-        android:background="@drawable/bubble_received"
+        android:background="@drawable/bubble_received_glass"
         android:padding="12dp"
         android:layout_marginEnd="60dp">
 
@@ -34,24 +34,36 @@
             android:background="#22000000"
             android:visibility="gone" />
 
-        <LinearLayout
+        <FrameLayout
             android:id="@+id/messageVideoContainer"
             android:layout_width="200dp"
-            android:layout_height="120dp"
+            android:layout_height="140dp"
             android:layout_marginBottom="4dp"
             android:background="#33000000"
-            android:gravity="center"
             android:visibility="gone">
 
-            <TextView
-                android:id="@+id/messageVideoLabel"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="▶ Tap to play video"
-                android:textColor="@android:color/white"
-                android:textSize="14sp" />
+            <ImageView
+                android:id="@+id/messageVideoThumb"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop" />
 
-        </LinearLayout>
+            <FrameLayout
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_gravity="center"
+                android:background="@drawable/play_button_bg">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_gravity="center"
+                    android:layout_marginStart="2dp"
+                    android:src="@drawable/ic_play" />
+
+            </FrameLayout>
+
+        </FrameLayout>
 
         <TextView
             android:id="@+id/messageText"
