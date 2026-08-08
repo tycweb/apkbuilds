@@ -55,18 +55,23 @@
             android:background="@drawable/input_bg"
             android:maxLines="4" />
 
-        <Button
+        <FrameLayout
             android:id="@+id/sendButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="46dp"
+            android:layout_height="46dp"
             android:layout_marginStart="8dp"
-            android:text="Send"
-            android:textColor="@color/white"
             android:background="@drawable/gradient_button"
-            android:paddingLeft="18dp"
-            android:paddingRight="18dp"
-            android:paddingTop="12dp"
-            android:paddingBottom="12dp" />
+            android:foreground="?android:attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true">
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_send" />
+
+        </FrameLayout>
 
     </LinearLayout>
 
