@@ -84,6 +84,8 @@ public class ChatMessageAdapter extends ArrayAdapter<ChatMessage> {
 
         if (!TextUtils.isEmpty(message.videoUrl)) {
             videoContainer.setVisibility(View.VISIBLE);
+            ImageView videoThumb = view.findViewById(R.id.messageVideoThumb);
+            VideoThumbnailLoader.load(message.videoUrl, videoThumb);
             videoContainer.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {

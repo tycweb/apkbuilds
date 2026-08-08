@@ -1,5 +1,7 @@
 package com.example.tycept;
 
+import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Bitmap;
@@ -42,6 +44,8 @@ public class ChatActivity extends Activity {
     private String myName;
 
     private ListView listView;
+    private View skeletonContainer;
+    private ObjectAnimator skeletonAnimator;
     private EditText messageInput;
     private View sendButton;
     private View attachButton;
@@ -68,12 +72,19 @@ public class ChatActivity extends Activity {
         titleView.setText(passedTitle);
 
         listView = findViewById(R.id.messageListView);
+        skeletonContainer = findViewById(R.id.skeletonContainer);
         messageInput = findViewById(R.id.messageInput);
         sendButton = findViewById(R.id.sendButton);
         attachButton = findViewById(R.id.attachButton);
 
         adapter = new ChatMessageAdapter(this, messages);
         listView.setAdapter(adapter);
+
+        skeletonAnimator = ObjectAnimator.ofFloat(skeletonContainer, "alpha", 1f, 0.35f);
+        skeletonAnimator.setDuration(700);
+        skeletonAnimator.setRepeatMode(ValueAnimator.REVERSE);
+        skeletonAnimator.setRepeatCount(ValueAnimator.INFINITE);
+        skeletonAnimator.start();
 
         socket = SocketManager.getInstance().getSocket();
 
@@ -101,6 +112,7 @@ public class ChatActivity extends Activity {
 
             @Override
             public void onError(String message) {
+                hideSkeleton();
                 Toast.makeText(ChatActivity.this,
                         "Couldn't load messages — check your connection and reopen the chat",
                         Toast.LENGTH_LONG).show();
@@ -146,6 +158,17 @@ public class ChatActivity extends Activity {
         if (!messages.isEmpty()) {
             listView.setSelection(messages.size() - 1);
         }
+        hideSkeleton();
+    }
+
+    private void hideSkeleton() {
+        if (skeletonAnimator != null) {
+            skeletonAnimator.cancel();
+        }
+        if (skeletonContainer != null) {
+            skeletonContainer.setVisibility(View.GONE);
+        }
+        listView.setVisibility(View.VISIBLE);
     }
 
     private void addMessageFromJson(JSONObject m) {
@@ -378,6 +401,9 @@ public class ChatActivity extends Activity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (skeletonAnimator != null) {
+            skeletonAnimator.cancel();
+        }
         if (socket != null && onNewMessage != null) {
             socket.off("message", onNewMessage);
         }
