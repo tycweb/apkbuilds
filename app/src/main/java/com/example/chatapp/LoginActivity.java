@@ -201,8 +201,11 @@ public class LoginActivity extends Activity {
             clearSavedCredentials();
         }
 
-        SocketManager.getInstance().myName = result.optString("name");
-        SocketManager.getInstance().conversations = result.optJSONArray("conversations");
+        SocketManager.getInstance().onJoined(
+                result.optString("name"),
+                password,
+                result.optJSONArray("conversations")
+        );
 
         Intent intent = new Intent(LoginActivity.this, ConversationsActivity.class);
         startActivity(intent);
