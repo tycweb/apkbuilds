@@ -13,7 +13,7 @@
         android:layout_gravity="start"
         android:orientation="vertical"
         android:background="@drawable/bubble_received_glass"
-        android:padding="12dp"
+        android:clipToOutline="true"
         android:layout_marginEnd="60dp">
 
         <TextView
@@ -23,22 +23,21 @@
             android:textColor="@color/accent2"
             android:textSize="12sp"
             android:textStyle="bold"
-            android:paddingBottom="2dp" />
+            android:paddingStart="12dp"
+            android:paddingTop="10dp" />
 
         <ImageView
             android:id="@+id/messageImage"
-            android:layout_width="200dp"
-            android:layout_height="200dp"
-            android:layout_marginBottom="4dp"
+            android:layout_width="230dp"
+            android:layout_height="230dp"
             android:scaleType="centerCrop"
             android:background="#22000000"
             android:visibility="gone" />
 
         <FrameLayout
             android:id="@+id/messageVideoContainer"
-            android:layout_width="200dp"
-            android:layout_height="140dp"
-            android:layout_marginBottom="4dp"
+            android:layout_width="230dp"
+            android:layout_height="145dp"
             android:background="#33000000"
             android:visibility="gone">
 
@@ -48,7 +47,14 @@
                 android:layout_height="match_parent"
                 android:scaleType="centerCrop" />
 
+            <VideoView
+                android:id="@+id/messageVideoPlayer"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:visibility="gone" />
+
             <FrameLayout
+                android:id="@+id/playButtonOverlay"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:layout_gravity="center"
@@ -65,21 +71,29 @@
 
         </FrameLayout>
 
-        <TextView
-            android:id="@+id/messageText"
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="@color/white"
-            android:textSize="16sp" />
+            android:orientation="vertical"
+            android:padding="12dp">
 
-        <TextView
-            android:id="@+id/messageTime"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="end"
-            android:textColor="@color/gray1"
-            android:textSize="11sp"
-            android:paddingTop="3dp" />
+            <TextView
+                android:id="@+id/messageText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/white"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/messageTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end"
+                android:textColor="@color/gray1"
+                android:textSize="11sp"
+                android:paddingTop="3dp" />
+
+        </LinearLayout>
 
     </LinearLayout>
 
