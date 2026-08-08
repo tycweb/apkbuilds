@@ -4,7 +4,7 @@ import android.app.Activity;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.View;
-import android.widget.Button;
+
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.TextView;
@@ -25,7 +25,7 @@ public class ChatActivity extends Activity {
 
     private ListView listView;
     private EditText messageInput;
-    private Button sendButton;
+    private View sendButton;
     private TextView titleView;
 
     private List<ChatMessage> messages = new ArrayList<>();

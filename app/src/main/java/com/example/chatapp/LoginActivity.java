@@ -13,6 +13,7 @@ import android.widget.TextView;
 
 import io.socket.client.Ack;
 import io.socket.client.Socket;
+import io.socket.emitter.Emitter;
 import org.json.JSONObject;
 
 public class LoginActivity extends Activity {
@@ -22,6 +23,11 @@ public class LoginActivity extends Activity {
     private Button joinButton;
     private TextView errorText;
     private Handler mainHandler = new Handler(Looper.getMainLooper());
+    private Runnable timeoutRunnable;
+    private boolean joinResolved;
+
+    private Emitter.Listener onConnectError;
+    private Emitter.Listener onConnect;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -46,21 +52,63 @@ public class LoginActivity extends Activity {
         final String password = passwordInput.getText().toString();
 
         if (TextUtils.isEmpty(name)) {
-            errorText.setText("Enter a name");
-            errorText.setVisibility(View.VISIBLE);
+            showError("Enter a name");
             return;
         }
         if (password.length() < 4) {
-            errorText.setText("Password must be at least 4 characters");
-            errorText.setVisibility(View.VISIBLE);
+            showError("Password must be at least 4 characters");
             return;
         }
 
         errorText.setVisibility(View.GONE);
         joinButton.setEnabled(false);
-        joinButton.setText("Connecting…");
+        joinButton.setText("Waking up server…");
+        joinResolved = false;
 
         final Socket socket = SocketManager.getInstance().getSocket();
+
+        // Free hosting tiers (like Render's free plan) can take 30-60s to wake
+        // up from sleep on the first request. Give clear feedback instead of a
+        // silent hang, and bail out with a helpful message if it's truly stuck.
+        onConnect = new Emitter.Listener() {
+            @Override
+            public void call(Object... args) {
+                mainHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (!joinResolved) {
+                            joinButton.setText("Connecting…");
+                        }
+                    }
+                });
+            }
+        };
+        onConnectError = new Emitter.Listener() {
+            @Override
+            public void call(final Object... args) {
+                mainHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (joinResolved) return;
+                        String detail = args.length > 0 ? String.valueOf(args[0]) : "unknown error";
+                        showError("Can't reach server: " + detail);
+                        resetButton();
+                    }
+                });
+            }
+        };
+        socket.on(Socket.EVENT_CONNECT, onConnect);
+        socket.on(Socket.EVENT_CONNECT_ERROR, onConnectError);
+
+        timeoutRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (joinResolved) return;
+                showError("Still waiting on the server. Free hosting can take up to a minute to wake up — try again in a bit.");
+                resetButton();
+            }
+        };
+        mainHandler.postDelayed(timeoutRunnable, 45000);
 
         JSONObject payload = new JSONObject();
         try {
@@ -76,6 +124,8 @@ public class LoginActivity extends Activity {
                 mainHandler.post(new Runnable() {
                     @Override
                     public void run() {
+                        joinResolved = true;
+                        mainHandler.removeCallbacks(timeoutRunnable);
                         handleJoinResponse(args);
                     }
                 });
@@ -83,13 +133,22 @@ public class LoginActivity extends Activity {
         });
     }
 
-    private void handleJoinResponse(Object[] args) {
+    private void resetButton() {
+        joinResolved = true;
         joinButton.setEnabled(true);
         joinButton.setText("Join chat");
+    }
+
+    private void showError(String message) {
+        errorText.setText(message);
+        errorText.setVisibility(View.VISIBLE);
+    }
+
+    private void handleJoinResponse(Object[] args) {
+        resetButton();
 
         if (args.length == 0 || !(args[0] instanceof JSONObject)) {
-            errorText.setText("Something went wrong. Try again.");
-            errorText.setVisibility(View.VISIBLE);
+            showError("Something went wrong. Try again.");
             return;
         }
 
@@ -98,13 +157,12 @@ public class LoginActivity extends Activity {
         if (result.has("error")) {
             String error = result.optString("error");
             if ("wrong-password".equals(error)) {
-                errorText.setText("Wrong password for that name");
+                showError("Wrong password for that name");
             } else if ("password-required".equals(error)) {
-                errorText.setText("Password too short");
+                showError("Password too short");
             } else {
-                errorText.setText("Couldn't join: " + error);
+                showError("Couldn't join: " + error);
             }
-            errorText.setVisibility(View.VISIBLE);
             return;
         }
 

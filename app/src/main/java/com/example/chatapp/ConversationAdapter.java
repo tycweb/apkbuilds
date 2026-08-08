@@ -1,6 +1,7 @@
 package com.example.tycept;
 
 import android.content.Context;
+import android.graphics.drawable.GradientDrawable;
 import android.text.format.DateFormat;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -38,10 +39,11 @@ public class ConversationAdapter extends ArrayAdapter<JSONObject> {
         TextView titleView = view.findViewById(R.id.convTitle);
         TextView previewView = view.findViewById(R.id.convPreview);
         TextView timeView = view.findViewById(R.id.convTime);
+        View avatarBg = view.findViewById(R.id.convAvatarBg);
+        TextView avatarInitial = view.findViewById(R.id.convAvatarInitial);
 
         String title = conv.optString("name");
         if (title == null || title.isEmpty()) {
-            // DM with no explicit name — fall back to the other member's name.
             JSONArray members = conv.optJSONArray("members");
             title = "Chat";
             if (members != null) {
@@ -55,6 +57,12 @@ public class ConversationAdapter extends ArrayAdapter<JSONObject> {
             }
         }
         titleView.setText(title);
+
+        GradientDrawable circle = new GradientDrawable();
+        circle.setShape(GradientDrawable.OVAL);
+        circle.setColor(AvatarUtil.colorForName(title));
+        avatarBg.setBackground(circle);
+        avatarInitial.setText(AvatarUtil.initialForName(title));
 
         JSONObject last = conv.optJSONObject("lastMessage");
         if (last != null) {
