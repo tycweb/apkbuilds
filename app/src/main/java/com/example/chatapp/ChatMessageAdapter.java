@@ -2,6 +2,8 @@ package com.example.tycept;
 
 import android.content.Context;
 import android.content.Intent;
+import android.media.MediaPlayer;
+import android.net.Uri;
 import android.text.TextUtils;
 import android.text.format.DateFormat;
 import android.view.LayoutInflater;
@@ -10,6 +12,7 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.VideoView;
 
 import com.bumptech.glide.Glide;
 
@@ -18,6 +21,11 @@ import java.util.List;
 public class ChatMessageAdapter extends ArrayAdapter<ChatMessage> {
 
     private LayoutInflater inflater;
+
+    // Only one video plays inline at a time, like Messenger — tapping a
+    // different one (or scrolling it off) reverts the previous back to its
+    // thumbnail. This is UI-only state, not persisted with the message.
+    private ChatMessage currentlyPlaying;
 
     public ChatMessageAdapter(Context context, List<ChatMessage> messages) {
         super(context, 0, messages);
@@ -82,23 +90,87 @@ public class ChatMessageAdapter extends ArrayAdapter<ChatMessage> {
             Glide.with(getContext()).clear(imageView);
         }
 
-        if (!TextUtils.isEmpty(message.videoUrl)) {
-            videoContainer.setVisibility(View.VISIBLE);
-            ImageView videoThumb = view.findViewById(R.id.messageVideoThumb);
-            VideoThumbnailLoader.load(message.videoUrl, videoThumb);
-            videoContainer.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    openInApp(message.videoUrl, true);
-                }
-            });
-        } else {
-            videoContainer.setVisibility(View.GONE);
-        }
+        bindVideo(view, videoContainer, message);
 
         timeView.setText(DateFormat.format("hh:mm a", message.time));
 
         return view;
+    }
+
+    private void bindVideo(View row, View videoContainer, final ChatMessage message) {
+        if (TextUtils.isEmpty(message.videoUrl)) {
+            videoContainer.setVisibility(View.GONE);
+            return;
+        }
+        videoContainer.setVisibility(View.VISIBLE);
+
+        final ImageView thumb = row.findViewById(R.id.messageVideoThumb);
+        final View playOverlay = row.findViewById(R.id.playButtonOverlay);
+        final VideoView player = row.findViewById(R.id.messageVideoPlayer);
+
+        if (message == currentlyPlaying) {
+            thumb.setVisibility(View.GONE);
+            playOverlay.setVisibility(View.GONE);
+            player.setVisibility(View.VISIBLE);
+
+            if (!player.isPlaying()) {
+                player.setVideoURI(Uri.parse(message.videoUrl));
+                player.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
+                    @Override
+                    public void onPrepared(MediaPlayer mp) {
+                        mp.setLooping(false);
+                        player.start();
+                    }
+                });
+                player.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+                    @Override
+                    public void onCompletion(MediaPlayer mp) {
+                        if (currentlyPlaying == message) {
+                            currentlyPlaying = null;
+                            notifyDataSetChanged();
+                        }
+                    }
+                });
+                player.setOnErrorListener(new MediaPlayer.OnErrorListener() {
+                    @Override
+                    public boolean onError(MediaPlayer mp, int what, int extra) {
+                        if (currentlyPlaying == message) {
+                            currentlyPlaying = null;
+                            notifyDataSetChanged();
+                        }
+                        return true;
+                    }
+                });
+            }
+
+            // Tap the playing video again to stop and go back to the thumbnail.
+            videoContainer.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    player.stopPlayback();
+                    currentlyPlaying = null;
+                    notifyDataSetChanged();
+                }
+            });
+        } else {
+            // Defensive: this recycled row might still be holding a live player
+            // from whatever message it displayed before — make sure it's stopped.
+            if (player.isPlaying()) {
+                player.stopPlayback();
+            }
+            player.setVisibility(View.GONE);
+            thumb.setVisibility(View.VISIBLE);
+            playOverlay.setVisibility(View.VISIBLE);
+            VideoThumbnailLoader.load(message.videoUrl, thumb);
+
+            videoContainer.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    currentlyPlaying = message;
+                    notifyDataSetChanged();
+                }
+            });
+        }
     }
 
     private void openInApp(String url, boolean isVideo) {
