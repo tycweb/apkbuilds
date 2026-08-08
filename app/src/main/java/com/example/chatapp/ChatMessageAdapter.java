@@ -2,7 +2,6 @@ package com.example.tycept;
 
 import android.content.Context;
 import android.content.Intent;
-import android.net.Uri;
 import android.text.TextUtils;
 import android.text.format.DateFormat;
 import android.view.LayoutInflater;
@@ -11,7 +10,6 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.ImageView;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.bumptech.glide.Glide;
 
@@ -76,7 +74,7 @@ public class ChatMessageAdapter extends ArrayAdapter<ChatMessage> {
             imageView.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    openExternally(message.imageUrl, "image/*");
+                    openInApp(message.imageUrl, false);
                 }
             });
         } else {
@@ -89,7 +87,7 @@ public class ChatMessageAdapter extends ArrayAdapter<ChatMessage> {
             videoContainer.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    openExternally(message.videoUrl, "video/*");
+                    openInApp(message.videoUrl, true);
                 }
             });
         } else {
@@ -101,19 +99,10 @@ public class ChatMessageAdapter extends ArrayAdapter<ChatMessage> {
         return view;
     }
 
-    private void openExternally(String url, String mimeType) {
-        try {
-            Intent intent = new Intent(Intent.ACTION_VIEW);
-            intent.setDataAndType(Uri.parse(url), mimeType);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            getContext().startActivity(intent);
-        } catch (Exception e) {
-            try {
-                getContext().startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-            } catch (Exception e2) {
-                Toast.makeText(getContext(), "No app found to open this", Toast.LENGTH_SHORT).show();
-            }
-        }
+    private void openInApp(String url, boolean isVideo) {
+        Intent intent = new Intent(getContext(), MediaViewerActivity.class);
+        intent.putExtra(MediaViewerActivity.EXTRA_URL, url);
+        intent.putExtra(MediaViewerActivity.EXTRA_IS_VIDEO, isVideo);
+        getContext().startActivity(intent);
     }
 }
