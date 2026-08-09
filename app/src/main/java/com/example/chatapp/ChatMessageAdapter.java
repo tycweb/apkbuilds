@@ -1,5 +1,6 @@
 package com.example.tycept;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.media.MediaPlayer;
@@ -15,6 +16,7 @@ import android.widget.TextView;
 import android.widget.VideoView;
 
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions;
 
 import java.util.List;
 
@@ -57,8 +59,6 @@ public class ChatMessageAdapter extends ArrayAdapter<ChatMessage> {
         TextView senderView = view.findViewById(R.id.messageSender);
         TextView textView = view.findViewById(R.id.messageText);
         TextView timeView = view.findViewById(R.id.messageTime);
-        ImageView imageView = view.findViewById(R.id.messageImage);
-        View videoContainer = view.findViewById(R.id.messageVideoContainer);
 
         if (senderView != null) {
             if (message.type == ChatMessage.TYPE_RECEIVED) {
@@ -76,28 +76,47 @@ public class ChatMessageAdapter extends ArrayAdapter<ChatMessage> {
             textView.setText(message.text);
         }
 
-        if (!TextUtils.isEmpty(message.imageUrl)) {
-            imageView.setVisibility(View.VISIBLE);
-            Glide.with(getContext()).load(message.imageUrl).into(imageView);
-            imageView.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    openInApp(message.imageUrl, false);
-                }
-            });
-        } else {
-            imageView.setVisibility(View.GONE);
-            Glide.with(getContext()).clear(imageView);
-        }
-
-        bindVideo(view, videoContainer, message);
+        bindImage(view, message);
+        bindVideo(view, message);
 
         timeView.setText(DateFormat.format("hh:mm a", message.time));
 
         return view;
     }
 
-    private void bindVideo(View row, View videoContainer, final ChatMessage message) {
+    private void bindImage(View row, final ChatMessage message) {
+        View wrap = row.findViewById(R.id.messageImageWrap);
+        final ImageView imageView = row.findViewById(R.id.messageImage);
+        View saveButton = row.findViewById(R.id.imageSaveButton);
+
+        if (TextUtils.isEmpty(message.imageUrl)) {
+            wrap.setVisibility(View.GONE);
+            return;
+        }
+
+        wrap.setVisibility(View.VISIBLE);
+        Glide.with(getContext())
+                .load(message.imageUrl)
+                .transition(DrawableTransitionOptions.withCrossFade(200))
+                .into(imageView);
+
+        imageView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                openInApp(message.imageUrl, false);
+            }
+        });
+        saveButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                saveMedia(message.imageUrl, false);
+            }
+        });
+    }
+
+    private void bindVideo(View row, final ChatMessage message) {
+        View videoContainer = row.findViewById(R.id.messageVideoContainer);
+
         if (TextUtils.isEmpty(message.videoUrl)) {
             videoContainer.setVisibility(View.GONE);
             return;
@@ -107,10 +126,19 @@ public class ChatMessageAdapter extends ArrayAdapter<ChatMessage> {
         final ImageView thumb = row.findViewById(R.id.messageVideoThumb);
         final View playOverlay = row.findViewById(R.id.playButtonOverlay);
         final VideoView player = row.findViewById(R.id.messageVideoPlayer);
+        View saveButton = row.findViewById(R.id.videoSaveButton);
+
+        saveButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                saveMedia(message.videoUrl, true);
+            }
+        });
 
         if (message == currentlyPlaying) {
             thumb.setVisibility(View.GONE);
             playOverlay.setVisibility(View.GONE);
+            saveButton.setVisibility(View.GONE);
             player.setVisibility(View.VISIBLE);
 
             if (!player.isPlaying()) {
@@ -161,15 +189,31 @@ public class ChatMessageAdapter extends ArrayAdapter<ChatMessage> {
             player.setVisibility(View.GONE);
             thumb.setVisibility(View.VISIBLE);
             playOverlay.setVisibility(View.VISIBLE);
+            saveButton.setVisibility(View.VISIBLE);
             VideoThumbnailLoader.load(message.videoUrl, thumb);
 
             videoContainer.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    currentlyPlaying = message;
-                    notifyDataSetChanged();
+                    // Quick press-bounce on the play button for a bit of life
+                    // before the video takes over the bubble.
+                    playOverlay.animate().scaleX(0.85f).scaleY(0.85f).setDuration(80)
+                            .withEndAction(new Runnable() {
+                                @Override
+                                public void run() {
+                                    currentlyPlaying = message;
+                                    notifyDataSetChanged();
+                                }
+                            }).start();
                 }
             });
+        }
+    }
+
+    private void saveMedia(String url, boolean isVideo) {
+        Context context = getContext();
+        if (context instanceof Activity) {
+            MediaSaver.save((Activity) context, url, isVideo);
         }
     }
 

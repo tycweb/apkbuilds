@@ -68,7 +68,9 @@ class VideoThumbnailLoader {
                             cache.put(videoUrl, result);
                         }
                         if (result != null && videoUrl.equals(target.getTag())) {
+                            target.setAlpha(0f);
                             target.setImageBitmap(result);
+                            target.animate().alpha(1f).setDuration(200).start();
                         }
                     }
                 });
